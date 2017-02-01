@@ -139,6 +139,7 @@ class MainWindow(QMainWindow):
         # Кэш страниц манги, чтобы не качать их каждый раз при смене страницы на просмотренную в главе
         self.cache_page_chapter_by_image = dict()
 
+        self.last_item_chapter = None
         self.last_page_number = -1
 
         self.image_viewer = ImageViewer()
@@ -215,14 +216,28 @@ class MainWindow(QMainWindow):
         self.fill_chapter_viewer(url)
 
     def on_search_item_double_clicked(self, item):
+        # Чтобы нельзя было выбрать повторно мангу
+        if item == self.last_item_chapter:
+            return
+
+        self.last_item_chapter = item
+
+        self.last_page_number = -1
+        self.last_item_chapter = None
+        self.url_images_chapter.clear()
+        self.cache_page_chapter_by_image.clear()
+        self.ui.combo_box_manga_chapters.clear()
+        self.ui.combo_box_pages.clear()
+        self.image_viewer.clear()
+        self._update_states()
+
         url = item.data(self.ROLE_MANGA_URL)
         title = item.data(self.ROLE_MANGA_TITLE)
 
-        import requests
-        rs = requests.get(url)
+        content_as_bytes = self._download_by_url(url)
 
         from bs4 import BeautifulSoup
-        root = BeautifulSoup(rs.content, 'lxml')
+        root = BeautifulSoup(content_as_bytes, 'lxml')
 
         description = root.select_one('.manga-description').text.strip()
 
@@ -233,32 +248,33 @@ class MainWindow(QMainWindow):
         self.ui.label_manga_name.setText(title)
         self.ui.text_edit_description.setText(description)
 
-        url_first_chapter = root.select_one('.read-first > a')['href']
+        url_first_chapter = root.select_one('.read-first > a[href]')
+        if not url_first_chapter:
+            QMessageBox.information(self, "Внимание", "Похоже у манги нет глав")
+            return
+
+        url_first_chapter = url_first_chapter['href']
 
         from urllib.parse import urljoin
-        url_first_chapter = urljoin(rs.url, url_first_chapter)
+        url_first_chapter = urljoin(url, url_first_chapter)
 
         self.fill_chapter_viewer(url_first_chapter)
 
     def fill_chapter_viewer(self, url_chapter):
         # Загрузка первой главы для получения списка глав и показа первой страницы главы
-        import requests
-        rs = requests.get(url_chapter)
+        content_as_bytes = self._download_by_url(url_chapter)
 
         from bs4 import BeautifulSoup
-        root = BeautifulSoup(rs.content, 'lxml')
+        root = BeautifulSoup(content_as_bytes, 'lxml')
 
         from urllib.parse import urljoin
-        chapter_list = [(option.text.strip(), urljoin(rs.url, option['value'])) for option in
+        chapter_list = [(option.text.strip(), urljoin(url_chapter, option['value'])) for option in
                         root.select('#chapterSelectorSelect > option')]
-
-        self.cache_page_chapter_by_image.clear()
 
         # Чтобы напрасно не вызывался сигнал currentIndexChanged при настройке комбобокса
         self.ui.combo_box_manga_chapters.blockSignals(True)
 
         # Заполнение списка глав
-        self.ui.combo_box_manga_chapters.clear()
         for title_chapter, _url_chapter in chapter_list:
             self.ui.combo_box_manga_chapters.addItem(title_chapter, _url_chapter)
 
@@ -279,7 +295,6 @@ class MainWindow(QMainWindow):
         self.url_images_chapter = get_url_images_from_chapter(html)
 
         # Заполнение списка с страницами главы
-        self.ui.combo_box_pages.clear()
         for i in range(len(self.url_images_chapter)):
             self.ui.combo_box_pages.addItem(str(i + 1))
 
@@ -288,14 +303,18 @@ class MainWindow(QMainWindow):
 
         self._update_states()
 
-    def _download_image(self, image_url):
+    def _download_by_url(self, url):
         import requests
-        rs = requests.get(image_url, stream=True)
+        rs = requests.get(url, stream=True)
 
         self.download_progress_bar.show()
 
-        img_size = int(rs.headers['Content-Length'])
-        self.download_progress_bar.setMaximum(img_size)
+        if 'Content-Length' in rs.headers:
+            img_size = int(rs.headers['Content-Length'])
+            self.download_progress_bar.setMaximum(img_size)
+        else:
+            # Прогресс бар становится бесконечным
+            self.download_progress_bar.setMaximum(0)
 
         size = 0
 
@@ -305,11 +324,12 @@ class MainWindow(QMainWindow):
             if buf:
                 byte_array_img += buf
                 size += len(buf)
+
                 self.download_progress_bar.setValue(size)
 
         self.download_progress_bar.hide()
 
-        return QImage.fromData(byte_array_img)
+        return bytes(byte_array_img)
 
     def set_chapter_page(self, page_number):
         if page_number == -1 or page_number == self.last_page_number:
@@ -322,7 +342,9 @@ class MainWindow(QMainWindow):
 
         if page_number not in self.cache_page_chapter_by_image:
             url_first_page = self.url_images_chapter[page_number]
-            img = self._download_image(url_first_page)
+
+            content_as_bytes = self._download_by_url(url_first_page)
+            img = QImage.fromData(content_as_bytes)
 
             self.cache_page_chapter_by_image[page_number] = img
 

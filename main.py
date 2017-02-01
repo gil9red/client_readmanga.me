@@ -241,8 +241,6 @@ class MainWindow(QMainWindow):
         self.fill_chapter_viewer(url_first_chapter)
 
     def fill_chapter_viewer(self, url_chapter):
-        print(url_chapter)
-
         # Загрузка первой главы для получения списка глав и показа первой страницы главы
         import requests
         rs = requests.get(url_chapter)

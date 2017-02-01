@@ -1,0 +1,1 @@
+pyuic5 main_window.ui --output main_window_ui.py

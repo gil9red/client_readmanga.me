@@ -154,6 +154,16 @@ class MainWindow(QMainWindow):
 
         self._update_states()
 
+    def _clear_states(self):
+        self.last_page_number = -1
+        self.last_item_chapter = None
+        self.url_images_chapter.clear()
+        self.cache_page_chapter_by_image.clear()
+        self.ui.combo_box_manga_chapters.clear()
+        self.ui.combo_box_pages.clear()
+        self.image_viewer.clear()
+        self._update_states()
+
     def _update_states(self):
         pages = self.ui.combo_box_pages.count()
         current_page = self.ui.combo_box_pages.currentIndex()
@@ -222,14 +232,7 @@ class MainWindow(QMainWindow):
 
         self.last_item_chapter = item
 
-        self.last_page_number = -1
-        self.last_item_chapter = None
-        self.url_images_chapter.clear()
-        self.cache_page_chapter_by_image.clear()
-        self.ui.combo_box_manga_chapters.clear()
-        self.ui.combo_box_pages.clear()
-        self.image_viewer.clear()
-        self._update_states()
+        self._clear_states()
 
         url = item.data(self.ROLE_MANGA_URL)
         title = item.data(self.ROLE_MANGA_TITLE)
@@ -261,6 +264,8 @@ class MainWindow(QMainWindow):
         self.fill_chapter_viewer(url_first_chapter)
 
     def fill_chapter_viewer(self, url_chapter):
+        self._clear_states()
+
         # Загрузка первой главы для получения списка глав и показа первой страницы главы
         content_as_bytes = self._download_by_url(url_chapter)
 
@@ -295,8 +300,11 @@ class MainWindow(QMainWindow):
         self.url_images_chapter = get_url_images_from_chapter(html)
 
         # Заполнение списка с страницами главы
+        self.ui.combo_box_pages.blockSignals(True)
         for i in range(len(self.url_images_chapter)):
             self.ui.combo_box_pages.addItem(str(i + 1))
+
+        self.ui.combo_box_pages.blockSignals(False)
 
         current_page = self.ui.combo_box_pages.currentIndex()
         self.set_chapter_page(current_page)

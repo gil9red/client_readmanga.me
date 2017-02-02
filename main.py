@@ -345,9 +345,6 @@ class MainWindow(QMainWindow):
 
         self.last_page_number = page_number
 
-        # Возврат ползунка на положенное место
-        self.ui.scroll_area_image_page.verticalScrollBar().setValue(0)
-
         if page_number not in self.cache_page_chapter_by_image:
             url_first_page = self.url_images_chapter[page_number]
 
@@ -360,6 +357,9 @@ class MainWindow(QMainWindow):
             img = self.cache_page_chapter_by_image[page_number]
 
         self.image_viewer.set_image(img)
+
+        # Возврат ползунка на положенное место
+        self.ui.scroll_area_image_page.verticalScrollBar().setValue(0)
 
         self._update_states()
 

@@ -242,7 +242,12 @@ class MainWindow(QMainWindow):
         from bs4 import BeautifulSoup
         root = BeautifulSoup(content_as_bytes, 'lxml')
 
-        description = root.select_one('.manga-description').text.strip()
+        description = root.select_one('.manga-description')
+        if not description:
+            QMessageBox.information(self, "Внимание", "Похоже у манги нет описания")
+            return
+
+        description = description.text.strip()
 
         # Удаление множества подряд идущих пробелов
         import re

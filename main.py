@@ -69,6 +69,10 @@ def get_url_images_from_chapter(html_chapter):
         import json
         json_data = json.loads(json_text)
 
+        # NOTE: второй вариант вместо json, чисто питоничий
+        # import ast
+        # json_data = ast.literal_eval(json_text)
+
         from urllib.parse import urljoin
         return [urljoin(data_url[1], data_url[0] + data_url[2]) for data_url in json_data]
 
